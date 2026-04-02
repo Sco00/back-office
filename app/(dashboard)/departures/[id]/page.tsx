@@ -4,12 +4,17 @@ import { use, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, MapPin, Calendar, Clock, Truck, CheckCircle,
+  MapPin, Calendar, Clock, Truck, CheckCircle,
   Lock, User, DollarSign, Plane, Package, Loader2, ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { departuresApi } from '@/lib/api/departures.api'
-import { DepartureStates, getDepartureState, type Departure } from '@/lib/types/api.types'
+import { DepartureStates, PackageStates, getDepartureState, getPackageState, type DepartureDetail } from '@/lib/types/api.types'
+import { BackButton } from '@/components/ui/BackButton'
+import { DepartureStateBadge } from '@/components/shared/DepartureStateBadge'
+import { PackageStateBadge }   from '@/components/shared/PackageStateBadge'
+import { SectionCard } from '@/components/ui/SectionCard'
+import { DataTable, type Column } from '@/components/ui/DataTable'
 
 // ─── Étapes du départ ────────────────────────────────────────────────────────
 
@@ -31,21 +36,6 @@ const STATE_LABEL: Record<DepartureStates, string> = {
   [DepartureStates.ARRIVE]:     'Arrivé',
 }
 
-// ─── Badge état départ ────────────────────────────────────────────────────────
-
-function DepartureStateBadge({ state }: { state: DepartureStates }) {
-  const styles: Record<DepartureStates, string> = {
-    [DepartureStates.EN_ATTENTE]: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-    [DepartureStates.EN_TRANSIT]: 'bg-blue-500/20  text-blue-300  border-blue-500/30',
-    [DepartureStates.ARRIVE]:     'bg-green-500/20 text-green-300 border-green-500/30',
-  }
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${styles[state]}`}>
-      {STATE_LABEL[state]}
-    </span>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DepartureDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -60,12 +50,16 @@ export default function DepartureDetailPage({ params }: { params: Promise<{ id: 
     queryFn:  () => departuresApi.getById(id),
   })
 
+  const packages = dep?.packages ?? []
+
   const updateStateMutation = useMutation({
     mutationFn: (state: DepartureStates) => departuresApi.updateState(id, state),
     onSuccess: () => {
       toast.success('État du départ mis à jour')
       qc.invalidateQueries({ queryKey: ['departure', id] })
       qc.invalidateQueries({ queryKey: ['departures'] })
+      qc.invalidateQueries({ queryKey: ['packages'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error?.message ?? 'Erreur lors de la mise à jour')
@@ -78,6 +72,7 @@ export default function DepartureDetailPage({ params }: { params: Promise<{ id: 
       toast.success('Départ fermé')
       qc.invalidateQueries({ queryKey: ['departure', id] })
       qc.invalidateQueries({ queryKey: ['departures'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       setShowConfirm(false)
     },
     onError: () => toast.error('Erreur lors de la fermeture'),
@@ -109,13 +104,7 @@ export default function DepartureDetailPage({ params }: { params: Promise<{ id: 
 
       {/* ── Header ── */}
       <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm">Retour à la liste</span>
-        </button>
+        <BackButton />
 
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -245,6 +234,27 @@ export default function DepartureDetailPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
           </div>
+
+          {/* Liste des colis */}
+          <SectionCard
+            title="Colis"
+            icon={Package}
+            badge={<span className="text-xs bg-gray-700 text-gray-300 px-2.5 py-1 rounded-full">{packages.length}</span>}
+            padding=""
+            overflow
+          >
+            <DataTable
+              columns={[
+                { label: 'Référence', render: (pkg) => <span className="text-sm text-[#D16E41] font-medium">{pkg.reference}</span> },
+                { label: 'Client',    render: (pkg) => <span className="text-sm text-gray-300">{pkg.person?.firstName} {pkg.person?.lastName}</span> },
+                { label: 'Poids',     render: (pkg) => <span className="text-sm text-gray-300">{pkg.weight} kg</span> },
+                { label: 'Statut',    render: (pkg) => <PackageStateBadge state={getPackageState(pkg)} /> },
+              ]}
+              rows={packages}
+              emptyMessage="Aucun colis pour ce départ"
+              onRowClick={(pkg) => router.push(`/packages/${pkg.id}`)}
+            />
+          </SectionCard>
 
           {/* Infos du GP (partenaire) */}
           {dep.person && (

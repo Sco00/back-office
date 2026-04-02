@@ -143,6 +143,8 @@ export function CreateDepartureModal({ isOpen, onClose }: Props) {
     onSuccess: () => {
       toast.success('Départ créé avec succès')
       qc.invalidateQueries({ queryKey: ['departures'] })
+      qc.invalidateQueries({ queryKey: ['departures-modal'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       handleClose()
     },
     onError: (err: any) => {

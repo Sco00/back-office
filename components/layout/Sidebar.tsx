@@ -2,21 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  LayoutDashboard, Package, Plane, Users, User,
-  DollarSign, ChevronLeft, ChevronRight, LogOut,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, LogOut, Package } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { toast } from 'sonner'
-
-const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',  href: '/' },
-  { icon: Package,         label: 'Colis',      href: '/packages' },
-  { icon: Plane,           label: 'Départs GP', href: '/departures' },
-  { icon: Users,           label: 'Clients',    href: '/persons' },
-  { icon: User,            label: 'Relais',     href: '/relays' },
-  { icon: DollarSign,      label: 'Paiements',  href: '/payments' },
-]
+import { NAV_ITEMS } from '@/constants/navigation.constants'
 
 interface SidebarProps {
   isCollapsed:       boolean
@@ -65,7 +54,7 @@ export function Sidebar({ isCollapsed, onCollapsedChange }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-1">
-          {menuItems.map((item) => (
+          {NAV_ITEMS.map((item) => (
             <li key={item.href}>
               <Link
                 href={item.href}

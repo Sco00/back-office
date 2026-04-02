@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { ApiResponse, Currency, PaymentMethod, Address, Role } from '@/lib/types/api.types'
+import type { ApiResponse, Currency, Nature, PaymentMethod, Address, Role } from '@/lib/types/api.types'
 
 export const referenceApi = {
   currencies: async (): Promise<Currency[]> => {
@@ -13,17 +13,22 @@ export const referenceApi = {
   },
 
   addresses: async (): Promise<Address[]> => {
-    const { data } = await apiClient.get<ApiResponse<Address[]>>('/ref/addresses')
-    return data.data
+    const { data } = await apiClient.get<ApiResponse<{ props: Address[] }>>('/addresses', { params: { limit: 100 } })
+    return data.data.props
   },
 
   relaisAddresses: async (): Promise<Address[]> => {
-    const { data } = await apiClient.get<ApiResponse<Address[]>>('/ref/addresses', { params: { type: 'RELAIS' } })
-    return data.data
+    const { data } = await apiClient.get<ApiResponse<{ props: Address[] }>>('/addresses', { params: { type: 'RELAIS', limit: 100 } })
+    return data.data.props
   },
 
   roles: async (): Promise<Role[]> => {
     const { data } = await apiClient.get<ApiResponse<Role[]>>('/ref/roles')
+    return data.data
+  },
+
+  natures: async (): Promise<Nature[]> => {
+    const { data } = await apiClient.get<ApiResponse<Nature[]>>('/ref/natures')
     return data.data
   },
 }

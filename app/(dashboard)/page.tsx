@@ -12,33 +12,8 @@ import {
 } from 'recharts'
 import { dashboardApi } from '@/lib/api/dashboard.api'
 import type { DerniersColisItem, TopClientItem, StatutsParMoisItem, CaMensuelItem, ColisParRouteItem } from '@/lib/api/dashboard.api'
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const STATE_LABEL: Record<string, string> = {
-  EN_ATTENTE: 'En attente',
-  EN_TRANSIT: 'En transit',
-  ARRIVE:     'Arrivé',
-  LIVRE:      'Livré',
-  RETOURNE:   'Retourné',
-}
-
-const STATE_BADGE: Record<string, string> = {
-  EN_ATTENTE: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
-  EN_TRANSIT: 'bg-blue-500/20  text-blue-300  border border-blue-500/30',
-  ARRIVE:     'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-  LIVRE:      'bg-green-500/20 text-green-300  border border-green-500/30',
-  RETOURNE:   'bg-red-500/20   text-red-300    border border-red-500/30',
-}
-
-const TOOLTIP_STYLE = {
-  contentStyle: {
-    backgroundColor: '#1f2937',
-    border: '1px solid #374151',
-    borderRadius: '8px',
-    color: '#fff',
-  },
-}
+import { PACKAGE_STATE_MAP } from '@/constants/package.constants'
+import { TOOLTIP_STYLE }     from '@/constants/chart.constants'
 
 // ── Composants ───────────────────────────────────────────────────────────────
 
@@ -267,8 +242,8 @@ export default function DashboardPage() {
                     </td>
                     <td className="py-3 px-2 text-sm text-gray-300">{colis.weight} kg</td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATE_BADGE[colis.currentState] ?? 'bg-gray-500/20 text-gray-400'}`}>
-                        {STATE_LABEL[colis.currentState] ?? colis.currentState}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${(PACKAGE_STATE_MAP as any)[colis.currentState]?.cls ?? 'bg-gray-500/20 text-gray-400'}`}>
+                        {(PACKAGE_STATE_MAP as any)[colis.currentState]?.label ?? colis.currentState}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-right text-sm font-medium text-white">

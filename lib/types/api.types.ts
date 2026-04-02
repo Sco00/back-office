@@ -55,13 +55,14 @@ export interface PersonType {
 }
 
 export interface Person {
-  id:         string
-  firstName:  string
-  lastName:   string
-  mobile:     string
-  personType: PersonType
-  createdAt:  string
-  _count:     { packages: number }
+  id:           string
+  firstName:    string
+  lastName:     string
+  mobile:       string
+  personType:   PersonType
+  createdAt:    string
+  _count:       { packages: number }
+  totalSpent?:  number
 }
 
 export interface Currency {
@@ -71,12 +72,42 @@ export interface Currency {
   code:   string
 }
 
+export type AddressType = 'SIMPLE' | 'RELAIS'
+
 export interface Address {
   id:        string
   city:      string
   country:   string
   region:    string
   locality?: string
+  latitude?: number
+  longitude?: number
+  type:      AddressType
+  createdAt: string
+}
+
+export interface AddressDetail extends Address {
+  relays: (Relay & { person: Person | null })[]
+  departureGpsDepartures:   (Departure & { destinationAddress: Address | null; person: Person | null })[]
+  departureGpsDestinations: (Departure & { departureAddress:   Address | null; person: Person | null })[]
+}
+
+export interface AddressFilters {
+  search?:  string
+  country?: string
+  region?:  string
+  city?:    string
+  type?:    AddressType
+  page?:    number
+  limit?:   number
+}
+
+export interface CreateAddressDTO {
+  country:   string
+  region:    string
+  city:      string
+  locality?: string
+  type:      AddressType
   latitude?: number
   longitude?: number
 }
@@ -238,6 +269,7 @@ export interface PackageFilters {
   departureCountry?:   string
   destinationCountry?: string
   currencyId?:         string
+  unpaidOnly?:         boolean
   page?:               number
   limit?:              number
 }
@@ -279,12 +311,14 @@ export interface CreatePaymentDTO {
 }
 
 export interface PaymentFilters {
-  packageId?:  string
-  accepted?:   boolean
-  refunded?:   boolean
-  currencyId?: string
-  page?:       number
-  limit?:      number
+  packageId?:       string
+  accepted?:        boolean
+  refunded?:        boolean
+  currencyId?:      string
+  paymentMethodId?: string
+  createdAtFrom?:   string
+  page?:            number
+  limit?:           number
 }
 
 export interface CreatePersonDTO {
@@ -320,6 +354,10 @@ export interface RelayFilters {
 export interface RelayDetail extends Relay {
   packages: Package[]
   _count:   { packages: number }
+}
+
+export interface DepartureDetail extends Departure {
+  packages: Package[]
 }
 
 export interface CreateAccountDTO {

@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   PaginatedData,
   Departure,
+  DepartureDetail,
   DepartureFilters,
   CreateDepartureDTO,
   DepartureStates,
@@ -16,8 +17,8 @@ export const departuresApi = {
     return data.data
   },
 
-  getById: async (id: string): Promise<Departure> => {
-    const { data } = await apiClient.get<ApiResponse<Departure>>(`/departures/${id}`)
+  getById: async (id: string): Promise<DepartureDetail> => {
+    const { data } = await apiClient.get<ApiResponse<DepartureDetail>>(`/departures/${id}`)
     return data.data
   },
 

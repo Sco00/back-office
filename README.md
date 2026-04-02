@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Back-Office — Plateforme de gestion logistique GP
 
-## Getting Started
+Interface d'administration pour la gestion des départs, colis, personnes, paiements, relais et adresses.
 
-First, run the development server:
+## Stack technique
+
+| Couche | Technologie |
+|---|---|
+| Framework | Next.js 16.2 (App Router) |
+| UI | React 19, Tailwind CSS v4, Lucide React |
+| State / Cache | TanStack Query v5, Zustand v5 |
+| Formulaires | React Hook Form v7 + Zod |
+| HTTP | Axios |
+| Graphiques | Recharts |
+| Notifications | Sonner |
+| Langage | TypeScript 5 |
+
+## Modules
+
+- **Dashboard** — statistiques et graphiques de synthèse
+- **Départs** — création et suivi des voyages GP (états : EN_ATTENTE → EN_TRANSIT → ARRIVE)
+- **Colis** — gestion des envois rattachés à un départ (états : EN_ATTENTE → EN_TRANSIT → ARRIVE → LIVRE / RETOURNE)
+- **Personnes** — clients et gérants (types, remises, historique colis)
+- **Paiements** — enregistrement, validation et remboursement des règlements
+- **Relais** — points de dépôt/retrait associés à une adresse et une personne
+- **Adresses** — référentiel géographique (type SIMPLE ou RELAIS)
+
+## Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Démarrage
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Développement
+npm run dev
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Production
+npm run build
+npm run start
+```
 
-## Learn More
+L'application est accessible sur [http://localhost:3000](http://localhost:3000).
 
-To learn more about Next.js, take a look at the following resources:
+## Structure du projet
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/
+  (dashboard)/          # Pages protégées (layout avec Navbar/Sidebar)
+    page.tsx            # Dashboard principal
+    departures/         # Liste et détail des départs
+    packages/           # Liste et détail des colis
+    persons/            # Liste et détail des personnes
+    payments/           # Liste des paiements
+    relays/             # Liste et détail des relais
+    addresses/          # Liste et détail des adresses
+components/
+  departures/           # Modales et composants spécifiques aux départs
+  packages/             # Modales et composants spécifiques aux colis
+  payments/             # Modales et composants spécifiques aux paiements
+  persons/              # Modales et composants spécifiques aux personnes
+  relays/               # Modales et composants spécifiques aux relais
+  addresses/            # Modales et composants spécifiques aux adresses
+  layout/               # Navbar, Sidebar
+  shared/               # Badges d'état, composants partagés
+  ui/                   # Composants UI génériques
+lib/
+  api/                  # Fonctions d'appel API par module (axios)
+  types/                # Types et DTOs TypeScript (api.types.ts)
+providers/              # QueryProvider (TanStack Query)
+stores/                 # Stores Zustand
+constants/              # Constantes applicatives
+hooks/                  # Hooks personnalisés
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Variables d'environnement
 
-## Deploy on Vercel
+Créer un fichier `.env.local` à la racine :
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Lint
+
+```bash
+npm run lint
+```

@@ -35,6 +35,7 @@ export function CreatePersonModal({ isOpen, onClose }: { isOpen: boolean; onClos
     onSuccess: () => {
       toast.success('Personne créée')
       qc.invalidateQueries({ queryKey: ['persons'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       reset()
       onClose()
     },

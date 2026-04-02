@@ -10,6 +10,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
   '/persons':     { title: 'Personnes',       description: 'Clients, GPs et contacts' },
   '/relays':      { title: 'Relais',          description: 'Points de collecte et dépôt' },
   '/payments':    { title: 'Paiements',       description: 'Suivi des paiements et factures' },
+  '/addresses':   { title: 'Adresses',        description: 'Gestion des adresses et points de collecte' },
 }
 
 export function Navbar() {

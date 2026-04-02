@@ -9,7 +9,6 @@ import {
 import { toast } from 'sonner'
 import { personsApi }    from '@/lib/api/persons.api'
 import { departuresApi } from '@/lib/api/departures.api'
-import { naturesApi }    from '@/lib/api/natures.api'
 import { packagesApi }   from '@/lib/api/packages.api'
 import { referenceApi }  from '@/lib/api/reference.api'
 import type { Person, Departure, CreatePackagePaymentDTO } from '@/lib/types/api.types'
@@ -73,7 +72,7 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
   })
   const { data: natures = [] } = useQuery({
     queryKey: ['natures'],
-    queryFn:  naturesApi.list,
+    queryFn:  referenceApi.natures,
     enabled:  isOpen && step === 3,
   })
   const { data: paymentMethods = [] } = useQuery({
@@ -107,6 +106,8 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
       setSelectedPerson(p); setShowCreate(false)
       setNewClient({ firstName: '', lastName: '', mobile: '', personTypeId: '' })
       toast.success('Client créé')
+      qc.invalidateQueries({ queryKey: ['persons-modal'] })
+      qc.invalidateQueries({ queryKey: ['persons'] })
     },
     onError: () => toast.error('Erreur lors de la création du client'),
   })
@@ -116,6 +117,7 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
     onSuccess: () => {
       toast.success('Colis créé avec succès')
       qc.invalidateQueries({ queryKey: ['packages'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       handleClose()
     },
     onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Erreur'),

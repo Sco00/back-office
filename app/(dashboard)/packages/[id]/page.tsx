@@ -4,18 +4,22 @@ import { use, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, FileText, MapPin, Calendar, Package as PackageIcon,
+  FileText, MapPin, Calendar, Package as PackageIcon,
   Trash2, Loader2, User, DollarSign, Plane, Truck,
   CheckCircle, Clock, X, RefreshCw, MessageSquare,
   Copy, Weight, Box, AlertCircle, Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { packagesApi }   from '@/lib/api/packages.api'
-import { naturesApi }    from '@/lib/api/natures.api'
 import { paymentsApi }   from '@/lib/api/payments.api'
 import { referenceApi }  from '@/lib/api/reference.api'
 import { PackageStateBadge } from '@/components/shared/PackageStateBadge'
-import { PackageStates, getPackageState, type Package } from '@/lib/types/api.types'
+import { PackageStates, DepartureStates, getPackageState, getDepartureState, type Package } from '@/lib/types/api.types'
+import { BackButton }    from '@/components/ui/BackButton'
+import { SectionCard }   from '@/components/ui/SectionCard'
+import { DetailField }   from '@/components/ui/DetailField'
+import { StatsGrid, type StatCard } from '@/components/ui/StatsGrid'
+import { DataTable, type Column }   from '@/components/ui/DataTable'
 
 const ALL_STATES: { id: PackageStates; label: string; icon: any }[] = [
   { id: PackageStates.EN_ATTENTE, label: 'En attente',  icon: Clock  },
@@ -45,7 +49,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
   const [payPriceRelay, setPayPriceRelay]     = useState('')
   const [payInsurance, setPayInsurance]       = useState('')
 
-  const { data: pkg } = useQuery({
+  const { data: pkg, isLoading } = useQuery({
     queryKey: ['package', id],
     queryFn:  () => packagesApi.getById(id),
   })
@@ -55,6 +59,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
     onSuccess: () => {
       toast.success('Statut mis à jour')
       qc.invalidateQueries({ queryKey: ['packages'] }); qc.invalidateQueries({ queryKey: ['package', id] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       setShowStatusModal(false)
       setSelectedStatus('')
     },
@@ -63,7 +68,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
 
   const { data: natures = [] } = useQuery({
     queryKey: ['natures'],
-    queryFn:  naturesApi.list,
+    queryFn:  referenceApi.natures,
     enabled:  showAddNature,
   })
 
@@ -92,8 +97,10 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
     }),
     onSuccess: () => {
       toast.success('Paiement enregistré')
-      qc.invalidateQueries({ queryKey: ['packages'] }); qc.invalidateQueries({ queryKey: ['package', id] })
+      qc.invalidateQueries({ queryKey: ['packages'] })
       qc.invalidateQueries({ queryKey: ['package', id] })
+      qc.invalidateQueries({ queryKey: ['payments'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       setShowAddPayment(false)
       setPayAmount(''); setPayCurrencyId(''); setPayMethodId('')
       setPayRemise(''); setPayRemiseReason(''); setPayPriceRelay(''); setPayInsurance('')
@@ -133,29 +140,56 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
     onError: () => toast.error('Erreur lors de la génération de la facture'),
   })
 
-  if (!pkg) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-[#D16E41]" />
+      </div>
+    )
+  }
 
+  if (!pkg) {
     return <div className="text-center py-16 text-gray-400">Colis introuvable</div>
   }
 
-  const currentState   = getPackageState(pkg)
-  const latestPayment  = pkg.payments?.[pkg.payments.length - 1]
-  const canAddNature   = new Date(pkg.departureGp.deadline) > new Date()
-  const sym            = pkg.departureGp.currency?.symbol ?? '€'
-  const naturesTotal   = pkg.natures.reduce((sum, pn) => sum + (pn.price ?? 0), 0)
-  const netTotal       = latestPayment ? (latestPayment.amount - (latestPayment.remise ?? 0)) : naturesTotal
+  const currentState    = getPackageState(pkg)
+  const canChangeStatus = currentState === PackageStates.ARRIVE
+  const latestPayment   = pkg.payments?.[pkg.payments.length - 1]
+  const canAddNature    = new Date(pkg.departureGp.deadline) > new Date()
+  const sym             = pkg.departureGp.currency?.symbol ?? '€'
+  const naturesTotal    = pkg.natures.reduce((sum, pn) => sum + (pn.price ?? 0), 0)
+  const netTotal        = latestPayment ? (latestPayment.amount - (latestPayment.remise ?? 0)) : naturesTotal
+
+  const charStats: StatCard[] = [
+    { label: 'Poids',   value: `${pkg.weight} kg`,             color: 'bg-blue-500/20',   icon: Weight },
+    { label: 'Natures', value: pkg.natures.length,             color: 'bg-purple-500/20', icon: PackageIcon },
+    { label: 'Archivé', value: pkg.isArchived ? 'Oui' : 'Non', color: pkg.isArchived ? 'bg-amber-500/20' : 'bg-green-500/20', icon: AlertCircle },
+  ]
+
+  type PackageNature = (typeof pkg.natures)[number]
+  const natureColumns: Column<PackageNature>[] = [
+    { label: 'Nature',    render: (pn) => <span className="text-sm font-medium text-white">{pn.nature.name}</span> },
+    { label: 'Quantité',  render: (pn) => <span className="text-sm text-white font-medium">{pn.quantity}</span> },
+    { label: 'Prix unit.', render: (pn) => <span className="text-sm text-white font-medium">{pn.price?.toFixed(2) ?? '—'}</span> },
+    {
+      label: 'Actions', align: 'right',
+      render: (pn) => (
+        <button
+          onClick={() => removeNatureMutation.mutate(pn.nature.id)}
+          disabled={removeNatureMutation.isPending}
+          className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      ),
+    },
+  ]
 
   return (
     <div className="p-6">
       {/* ── Header ── */}
       <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm">Retour à la liste</span>
-        </button>
+        <BackButton />
 
         <div className="flex items-center justify-between">
           <div>
@@ -206,46 +240,10 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
         <div className="lg:col-span-2 space-y-6">
 
           {/* Caractéristiques */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Box className="w-5 h-5 text-[#D16E41]" />
-              Caractéristiques du Colis
-            </h2>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-gray-700 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Weight className="w-4 h-4 text-blue-400" />
-                  <p className="text-xs text-gray-400">Poids</p>
-                </div>
-                <p className="text-lg font-bold text-white">{pkg.weight} kg</p>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <PackageIcon className="w-4 h-4 text-purple-400" />
-                  <p className="text-xs text-gray-400">Natures</p>
-                </div>
-                <p className="text-lg font-bold text-white">{pkg.natures.length}</p>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="w-4 h-4 text-amber-400" />
-                  <p className="text-xs text-gray-400">Archivé</p>
-                </div>
-                <p className={`text-lg font-bold ${pkg.isArchived ? 'text-amber-400' : 'text-green-400'}`}>
-                  {pkg.isArchived ? 'Oui' : 'Non'}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Créé par</p>
-                <p className="text-sm text-white font-medium flex items-center gap-2">
-                  <User className="w-4 h-4 text-blue-400" />
-                  {pkg.creator?.email}
-                </p>
-              </div>
+          <SectionCard title="Caractéristiques du Colis" icon={Box} iconColor="text-[#D16E41]">
+            <StatsGrid stats={charStats} cols={3} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+              <DetailField label="Créé par" value={pkg.creator?.email ?? '—'} />
               <div>
                 <p className="text-xs text-gray-500 mb-1">Numéro de référence</p>
                 <div className="flex items-center gap-2">
@@ -260,29 +258,28 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Natures du Colis */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <PackageIcon className="w-5 h-5 text-[#D16E41]" />
-                Natures du Colis
-              </h2>
-              {canAddNature && (
-                <button
-                  onClick={() => setShowAddNature((v) => !v)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#D16E41] hover:bg-[#E07D52] text-white rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Ajouter
-                </button>
-              )}
-            </div>
-
+          <SectionCard
+            title="Natures du Colis"
+            icon={PackageIcon}
+            iconColor="text-[#D16E41]"
+            action={canAddNature ? (
+              <button
+                onClick={() => setShowAddNature((v) => !v)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#D16E41] hover:bg-[#E07D52] text-white rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Ajouter
+              </button>
+            ) : undefined}
+            padding=""
+            overflow
+          >
             {/* Formulaire d'ajout inline */}
             {showAddNature && (
-              <div className="mb-4 p-4 bg-gray-700 rounded-lg border border-gray-600 space-y-3">
+              <div className="m-4 p-4 bg-gray-700 rounded-lg border border-gray-600 space-y-3">
                 <h3 className="text-sm font-semibold text-white">Nouvelle nature</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
@@ -333,48 +330,13 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            {pkg.natures.length === 0 ? (
-              <p className="text-gray-500 text-sm">Aucune nature associée</p>
-            ) : (
-              <div className="overflow-x-auto mb-4">
-                <table className="w-full">
-                  <thead className="bg-gray-700">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nature</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Quantité</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Prix unit.</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-700">
-                    {pkg.natures.map((pn) => (
-                      <tr key={pn.id} className="hover:bg-gray-700/50 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className="text-sm font-medium text-white">{pn.nature.name}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-sm text-white font-medium">{pn.quantity}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="text-sm text-white font-medium">{pn.price?.toFixed(2) ?? '—'}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => removeNatureMutation.mutate(pn.nature.id)}
-                            disabled={removeNatureMutation.isPending}
-                            className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <DataTable
+              columns={natureColumns}
+              rows={pkg.natures}
+              emptyMessage="Aucune nature associée"
+            />
 
-            <div className="flex items-center gap-3 pt-4 border-t border-gray-700">
+            <div className="flex items-center gap-3 p-4 border-t border-gray-700">
               <button
                 onClick={openQuote}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500/20 text-white border border-blue-500/30 hover:bg-blue-500/30 rounded-lg transition-colors"
@@ -393,26 +355,25 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 </button>
               )}
             </div>
-          </div>
+          </SectionCard>
 
           {/* Suivi du Colis — Timeline */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-[#D16E41]" />
-                Suivi du Colis
-              </h2>
+          <SectionCard
+            title="Suivi du Colis"
+            icon={MapPin}
+            iconColor="text-[#D16E41]"
+            action={
               <button
                 onClick={() => setShowStatusModal(true)}
-                disabled={canAddNature}
-                title={canAddNature ? 'Disponible après la deadline du départ' : undefined}
+                disabled={!canChangeStatus}
+                title={!canChangeStatus ? 'Modification possible uniquement quand le colis est arrivé' : undefined}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-white border border-blue-500/30 hover:bg-blue-500/30 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RefreshCw className="w-4 h-4" />
                 Changer statut
               </button>
-            </div>
-
+            }
+          >
             <div className="relative">
               <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-700" />
               <div className="space-y-6">
@@ -457,32 +418,19 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 })}
               </div>
             </div>
-          </div>
+          </SectionCard>
         </div>
 
         {/* ══ Colonne droite (1/3) ══ */}
         <div className="space-y-6">
 
           {/* Client */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-[#D16E41]" />
-              Client
-            </h2>
+          <SectionCard title="Client" icon={User} iconColor="text-[#D16E41]">
             <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Nom</p>
-                <p className="text-sm text-white font-medium">{pkg.person.firstName} {pkg.person.lastName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Téléphone</p>
-                <p className="text-sm text-gray-300">{pkg.person.mobile}</p>
-              </div>
+              <DetailField label="Nom" value={`${pkg.person.firstName} ${pkg.person.lastName}`} />
+              <DetailField label="Téléphone" value={pkg.person.mobile} />
               {pkg.person.personType && (
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Type</p>
-                  <p className="text-sm text-gray-300">{pkg.person.personType.name}</p>
-                </div>
+                <DetailField label="Type" value={pkg.person.personType.name} />
               )}
               <div className="pt-3">
                 <a
@@ -496,30 +444,27 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 </a>
               </div>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Paiement */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-400" />
-                Paiement
-              </h2>
-              {!latestPayment && !showAddPayment && (
-                <button
-                  onClick={() => {
-                    setPayAmount(naturesTotal.toFixed(2))
-                    setPayRemise(String(pkg.person.personType?.remise ?? 0))
-                    setShowAddPayment(true)
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30 rounded-lg transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Ajouter paiement
-                </button>
-              )}
-            </div>
-
+          <SectionCard
+            title="Paiement"
+            icon={DollarSign}
+            iconColor="text-green-400"
+            action={!latestPayment && !showAddPayment ? (
+              <button
+                onClick={() => {
+                  setPayAmount(naturesTotal.toFixed(2))
+                  setPayRemise(String(pkg.person.personType?.remise ?? 0))
+                  setShowAddPayment(true)
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30 rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Ajouter paiement
+              </button>
+            ) : undefined}
+          >
             {/* Formulaire d'ajout de paiement */}
             {showAddPayment && (
               <div className="mb-4 p-4 bg-gray-700 rounded-lg border border-gray-600 space-y-3">
@@ -628,6 +573,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
             )}
+
             <div className="space-y-3">
               {pkg.natures.map((pn) => (
                 <div key={pn.id} className="flex items-center justify-between py-2 border-b border-gray-700">
@@ -657,10 +603,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
               <div className="pt-3 space-y-2 border-t border-gray-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Méthode</span>
-                  <span className="text-xs text-gray-300">{latestPayment?.paymentMethod?.name ?? '—'}</span>
-                </div>
+                <DetailField label="Méthode" value={latestPayment?.paymentMethod?.name ?? '—'} />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">Statut</span>
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -673,22 +616,13 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                     {latestPayment?.refunded ? 'Remboursé' : latestPayment?.accepted ? 'Payé' : 'En attente'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Date</span>
-                  <span className="text-xs text-gray-300">
-                    {latestPayment ? new Date(latestPayment.createdAt).toLocaleDateString('fr-FR') : '—'}
-                  </span>
-                </div>
+                <DetailField label="Date" value={latestPayment ? new Date(latestPayment.createdAt).toLocaleDateString('fr-FR') : '—'} />
               </div>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Route & Transport */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Plane className="w-5 h-5 text-[#D16E41]" />
-              Route & Transport
-            </h2>
+          <SectionCard title="Route & Transport" icon={Plane} iconColor="text-[#D16E41]">
             <div className="space-y-4">
               <div>
                 <p className="text-xs text-gray-500 mb-2">Route</p>
@@ -701,84 +635,47 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-700">
+              <div className="pt-3 border-t border-gray-700 space-y-1">
                 <p className="text-xs text-gray-500 mb-2">Départ groupé</p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">Date départ</span>
-                  <span className="text-xs text-gray-300">{new Date(pkg.departureGp.departureDate).toLocaleDateString('fr-FR')}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">Arrivée prévue</span>
-                  <span className="text-xs text-gray-300">{new Date(pkg.departureGp.arrivalDate).toLocaleDateString('fr-FR')}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">Deadline</span>
-                  <span className="text-xs text-gray-300">{new Date(pkg.departureGp.deadline).toLocaleDateString('fr-FR')}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">Prix/kg</span>
-                  <span className="text-xs text-gray-300">
-                    {pkg.departureGp.currency?.symbol} {pkg.departureGp.price}
-                  </span>
-                </div>
+                <DetailField label="Date départ"    value={new Date(pkg.departureGp.departureDate).toLocaleDateString('fr-FR')} />
+                <DetailField label="Arrivée prévue" value={new Date(pkg.departureGp.arrivalDate).toLocaleDateString('fr-FR')} />
+                <DetailField label="Deadline"       value={new Date(pkg.departureGp.deadline).toLocaleDateString('fr-FR')} />
+                <DetailField label="Prix/kg"        value={`${pkg.departureGp.currency?.symbol} ${pkg.departureGp.price}`} />
               </div>
 
               {pkg.departureGp.person && (
                 <div className="pt-3 border-t border-gray-700">
-                  <p className="text-xs text-gray-500 mb-2">GP responsable</p>
-                  <p className="text-sm text-white font-medium">
-                    {pkg.departureGp.person.firstName} {pkg.departureGp.person.lastName}
-                  </p>
+                  <DetailField label="GP responsable" value={`${pkg.departureGp.person.firstName} ${pkg.departureGp.person.lastName}`} />
                 </div>
               )}
             </div>
-          </div>
+          </SectionCard>
 
           {/* Relais de livraison */}
           {pkg.relay && (
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-blue-400" />
-                Point Relais de Livraison
-              </h2>
+            <SectionCard title="Point Relais de Livraison" icon={MapPin} iconColor="text-blue-400">
               <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Relais</p>
-                  <p className="text-sm text-white font-medium">{pkg.relay.name}</p>
-                </div>
+                <DetailField label="Relais" value={pkg.relay.name} />
                 {pkg.relay.person && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Contact</p>
-                    <p className="text-sm text-white font-medium">
-                      {pkg.relay.person.firstName} {pkg.relay.person.lastName}
-                    </p>
-                    <p className="text-xs text-gray-400">{pkg.relay.person.mobile}</p>
-                  </div>
+                  <>
+                    <DetailField label="Contact" value={`${pkg.relay.person.firstName} ${pkg.relay.person.lastName}`} />
+                    <DetailField label="Mobile"  value={pkg.relay.person.mobile} />
+                  </>
                 )}
                 {pkg.relay.address && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Adresse</p>
-                    {pkg.relay.address.street && <p className="text-sm text-gray-300">{pkg.relay.address.street}</p>}
-                    <p className="text-sm text-gray-300">{pkg.relay.address.city}, {pkg.relay.address.country}</p>
-                  </div>
+                  <DetailField
+                    label="Adresse"
+                    value={[pkg.relay.address.locality, `${pkg.relay.address.city}, ${pkg.relay.address.country}`].filter(Boolean).join(' — ')}
+                  />
                 )}
               </div>
-            </div>
+            </SectionCard>
           )}
 
           {/* Dates */}
-          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-blue-400" />
-              Dates
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Créé le</span>
-                <span className="text-sm text-white">{new Date(pkg.createdAt).toLocaleDateString('fr-FR')}</span>
-              </div>
-            </div>
-          </div>
+          <SectionCard title="Dates" icon={Calendar} iconColor="text-blue-400">
+            <DetailField label="Créé le" value={new Date(pkg.createdAt).toLocaleDateString('fr-FR')} />
+          </SectionCard>
         </div>
       </div>
 
@@ -821,7 +718,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                   onChange={(e) => setSelectedStatus(e.target.value as PackageStates)}
                 >
                   <option value="">Sélectionnez un statut</option>
-                  {ALL_STATES.filter((s) => !(pkg.statuses ?? []).some((st) => st.state === s.id)).map((s) => (
+                  {ALL_STATES.filter((s) => s.id === PackageStates.LIVRE || s.id === PackageStates.RETOURNE).map((s) => (
                     <option key={s.id} value={s.id}>{s.label}</option>
                   ))}
                 </select>
