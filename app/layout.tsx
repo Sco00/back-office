@@ -12,6 +12,9 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: 'YobbalGP — Back Office',
   description: 'Gestion des colis et expéditions',
+  icons: {
+    icon: '/icon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
