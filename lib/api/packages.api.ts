@@ -1,52 +1,67 @@
-import { apiClient } from './client'
 import type {
-  ApiResponse,
   PaginatedData,
   Package,
   PackageFilters,
   CreatePackageDTO,
   PackageStates,
 } from '@/lib/types/api.types'
+import { MOCK_PACKAGES, paginate } from '@/lib/mock/data'
+import { getPackageState } from '@/lib/types/api.types'
 
 export const packagesApi = {
   list: async (filters: PackageFilters = {}): Promise<PaginatedData<Package>> => {
-    const { data } = await apiClient.get<ApiResponse<PaginatedData<Package>>>('/packages', {
-      params: filters,
-    })
-    return data.data
+    let items = [...MOCK_PACKAGES]
+
+    if (filters.state) {
+      items = items.filter((p) => getPackageState(p) === filters.state)
+    }
+    if (filters.search) {
+      const q = filters.search.toLowerCase()
+      items = items.filter(
+        (p) =>
+          p.reference.toLowerCase().includes(q) ||
+          p.person.firstName.toLowerCase().includes(q) ||
+          p.person.lastName.toLowerCase().includes(q),
+      )
+    }
+    if (filters.departureCountry) {
+      items = items.filter((p) =>
+        p.departureGp.departureAddress.country
+          .toLowerCase()
+          .includes(filters.departureCountry!.toLowerCase()),
+      )
+    }
+    if (filters.destinationCountry) {
+      items = items.filter((p) =>
+        p.departureGp.destinationAddress.country
+          .toLowerCase()
+          .includes(filters.destinationCountry!.toLowerCase()),
+      )
+    }
+    if (filters.unpaidOnly) {
+      items = items.filter((p) => p.payments.length === 0)
+    }
+
+    return paginate(items, filters.page, filters.limit)
   },
 
   getById: async (id: string): Promise<Package> => {
-    const { data } = await apiClient.get<ApiResponse<Package>>(`/packages/${id}`)
-    return data.data
+    const pkg = MOCK_PACKAGES.find((p) => p.id === id)
+    if (!pkg) throw new Error(`Package ${id} not found`)
+    return pkg
   },
 
-  create: async (dto: CreatePackageDTO): Promise<Package> => {
-    const { data } = await apiClient.post<ApiResponse<Package>>('/packages', dto)
-    return data.data
-  },
+  create: async (_dto: CreatePackageDTO): Promise<Package> => MOCK_PACKAGES[0],
 
-  updateStatus: async (id: string, state: PackageStates): Promise<void> => {
-    await apiClient.patch(`/packages/${id}/status`, { state })
-  },
+  updateStatus: async (_id: string, _state: PackageStates): Promise<void> => {},
 
-  archive: async (id: string): Promise<void> => {
-    await apiClient.patch(`/packages/${id}/archive`)
-  },
+  archive: async (_id: string): Promise<void> => {},
 
-  delete: async (id: string): Promise<void> => {
-    await apiClient.delete(`/packages/${id}`)
-  },
+  delete: async (_id: string): Promise<void> => {},
 
-  addNature: async (id: string, dto: { natureId: string; quantity: number }): Promise<void> => {
-    await apiClient.post(`/packages/${id}/natures`, dto)
-  },
+  addNature: async (_id: string, _dto: { natureId: string; quantity: number }): Promise<void> => {},
 
-  removeNature: async (id: string, natureId: string): Promise<void> => {
-    await apiClient.delete(`/packages/${id}/natures/${natureId}`)
-  },
+  removeNature: async (_id: string, _natureId: string): Promise<void> => {},
 
-  getQuoteUrl: (id: string): string => {
-    return `/api/packages/${id}/quote`
-  },
+  getQuoteUrl: (id: string): string => `/api/packages/${id}/quote`,
 }

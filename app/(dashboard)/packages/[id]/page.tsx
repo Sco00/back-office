@@ -424,8 +424,8 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
         {/* ══ Colonne droite (1/3) ══ */}
         <div className="space-y-6">
 
-          {/* Client */}
-          <SectionCard title="Client" icon={User} iconColor="text-[#D16E41]">
+          {/* Client (Expéditeur) */}
+          <SectionCard title="Client (Expéditeur)" icon={User} iconColor="text-[#D16E41]">
             <div className="space-y-3">
               <DetailField label="Nom" value={`${pkg.person.firstName} ${pkg.person.lastName}`} />
               <DetailField label="Téléphone" value={pkg.person.mobile} />
@@ -443,6 +443,14 @@ export default function PackageDetailPage({ params }: { params: Promise<{ id: st
                   Contacter par WhatsApp
                 </a>
               </div>
+            </div>
+          </SectionCard>
+
+          {/* Destinataire */}
+          <SectionCard title="Destinataire" icon={User} iconColor="text-blue-400">
+            <div className="space-y-3">
+              <DetailField label="Nom" value={pkg.recipientName} />
+              <DetailField label="Téléphone" value={pkg.recipientPhone} />
             </div>
           </SectionCard>
 

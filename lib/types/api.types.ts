@@ -179,19 +179,21 @@ export const getDepartureState = (dep: Departure): DepartureStates =>
     : DepartureStates.EN_ATTENTE
 
 export interface Package {
-  id:          string
-  reference:   string
-  weight:      number
-  isCompleted: boolean
-  isArchived:  boolean
-  departureGp: Departure
-  person:      Person
-  relay?:      Relay
-  natures:     PackageNature[]
-  statuses:    PackageStatus[]
-  payments:    Payment[]
-  creator:     { id: string; email: string }
-  createdAt:   string
+  id:             string
+  reference:      string
+  weight:         number
+  isCompleted:    boolean
+  isArchived:     boolean
+  recipientName:  string
+  recipientPhone: string
+  departureGp:    Departure
+  person:         Person
+  relay?:         Relay
+  natures:        PackageNature[]
+  statuses:       PackageStatus[]
+  payments:       Payment[]
+  creator:        { id: string; email: string }
+  createdAt:      string
 }
 
 // Helper pour obtenir le statut courant d'un colis
@@ -257,6 +259,8 @@ export interface CreatePackageDTO {
   weight:         number
   departureGpId:  string
   personId:       string
+  recipientName:  string
+  recipientPhone: string
   relayId?:       string | null
   packageNatures: { natureId: string; quantity: number }[]
   payment?:       CreatePackagePaymentDTO

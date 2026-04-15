@@ -1,5 +1,5 @@
-import { apiClient } from './client'
 import type { ApiResponse } from '@/lib/types/api.types'
+import { MOCK_DASHBOARD } from '@/lib/mock/data'
 
 export interface DashboardKpis {
   totalColis:      number
@@ -26,8 +26,5 @@ export interface DashboardData {
 }
 
 export const dashboardApi = {
-  get: async (): Promise<DashboardData> => {
-    const { data } = await apiClient.get<ApiResponse<DashboardData>>('/dashboard')
-    return data.data
-  },
+  get: async (): Promise<DashboardData> => MOCK_DASHBOARD,
 }

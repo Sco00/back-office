@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   X, Package, User, MapPin, Search, Plane,
-  Plus, Trash2, CheckCircle, UserPlus, Calendar, Loader2,
+  Plus, Trash2, CheckCircle, UserPlus, Calendar, Loader2, Phone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { personsApi }    from '@/lib/api/persons.api'
@@ -16,7 +16,7 @@ import type { Person, Departure, CreatePackagePaymentDTO } from '@/lib/types/api
 interface AddedNature { natureId: string; name: string; unitPrice: number; quantity: number }
 interface Props { isOpen: boolean; onClose: () => void }
 
-const STEPS = ['Client', 'Trajet', 'Natures', 'Confirmation']
+const STEPS = ['Client', 'Destinataire', 'Trajet', 'Natures', 'Confirmation']
 
 export function CreatePackageModal({ isOpen, onClose }: Props) {
   const qc = useQueryClient()
@@ -30,17 +30,22 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
   const [newClient, setNewClient]           = useState({ firstName: '', lastName: '', mobile: '', personTypeId: '' })
 
   // Étape 2
+  const [recipientName, setRecipientName]       = useState('')
+  const [recipientPhone, setRecipientPhone]     = useState('')
+  const [recipientPhoneError, setRecipientPhoneError] = useState('')
+
+  // Étape 3
   const [depAddrId, setDepAddrId]   = useState('')
   const [destAddrId, setDestAddrId] = useState('')
   const [selectedDep, setSelectedDep] = useState<Departure | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
 
-  // Étape 3
+  // Étape 4
   const [addedNatures, setAddedNatures] = useState<AddedNature[]>([])
   const [curNatureId, setCurNatureId]   = useState('')
   const [curQty, setCurQty]             = useState('1')
 
-  // Étape 4 — paiement optionnel
+  // Étape 5 — paiement optionnel
   const [withPayment, setWithPayment]         = useState(false)
   const [payCurrencyId, setPayCurrencyId]     = useState('')
   const [payMethodId, setPayMethodId]         = useState('')
@@ -63,27 +68,27 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
   const { data: allAddresses = [] } = useQuery({
     queryKey: ['ref-addresses'],
     queryFn:  referenceApi.addresses,
-    enabled:  isOpen && step === 2,
+    enabled:  isOpen && step === 3,
   })
   const { data: allDepsData } = useQuery({
     queryKey: ['departures-modal'],
     queryFn:  () => departuresApi.list({ limit: 500 }),
-    enabled:  isOpen && step === 2,
+    enabled:  isOpen && step === 3,
   })
   const { data: natures = [] } = useQuery({
     queryKey: ['natures'],
     queryFn:  referenceApi.natures,
-    enabled:  isOpen && step === 3,
+    enabled:  isOpen && step === 4,
   })
   const { data: paymentMethods = [] } = useQuery({
     queryKey: ['payment-methods'],
     queryFn:  referenceApi.paymentMethods,
-    enabled:  isOpen && step === 4,
+    enabled:  isOpen && step === 5,
   })
   const { data: currencies = [] } = useQuery({
     queryKey: ['currencies'],
     queryFn:  referenceApi.currencies,
-    enabled:  isOpen && step === 4,
+    enabled:  isOpen && step === 5,
   })
 
   // Données dérivées
@@ -126,6 +131,7 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
   const handleClose = () => {
     setStep(1); setClientSearch(''); setSelectedPerson(null); setShowCreate(false)
     setNewClient({ firstName: '', lastName: '', mobile: '', personTypeId: '' })
+    setRecipientName(''); setRecipientPhone(''); setRecipientPhoneError('')
     setDepAddrId(''); setDestAddrId(''); setSelectedDep(null); setHasSearched(false)
     setAddedNatures([]); setCurNatureId(''); setCurQty('1')
     setWithPayment(false); setPayCurrencyId(''); setPayMethodId('')
@@ -142,8 +148,13 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
 
   const canNext = () => {
     if (step === 1) return !!selectedPerson
-    if (step === 2) return !!selectedDep
-    if (step === 3) return addedNatures.length > 0 && weight > 0
+    if (step === 2) return (
+      recipientName.trim().length > 0 &&
+      /^\+[1-9]\d{6,14}$/.test(recipientPhone) &&
+      recipientPhone !== selectedPerson?.mobile
+    )
+    if (step === 3) return !!selectedDep
+    if (step === 4) return addedNatures.length > 0 && weight > 0
     return false
   }
 
@@ -162,7 +173,7 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
             <div className="bg-[#D16E41] p-2 rounded-lg"><Package className="w-6 h-6 text-white" /></div>
             <div>
               <h2 className="text-xl font-bold text-white">Créer un nouveau colis</h2>
-              <p className="text-sm text-gray-400">Étape {step} sur 4 — {STEPS[step - 1]}</p>
+              <p className="text-sm text-gray-400">Étape {step} sur 5 — {STEPS[step - 1]}</p>
             </div>
           </div>
           <button onClick={handleClose} className="text-gray-400 hover:text-white hover:bg-gray-700 p-2 rounded-lg transition-colors">
@@ -178,7 +189,7 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
             ))}
           </div>
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div className="h-full bg-[#D16E41] transition-all duration-300" style={{ width: `${(step / 4) * 100}%` }} />
+            <div className="h-full bg-[#D16E41] transition-all duration-300" style={{ width: `${(step / 5) * 100}%` }} />
           </div>
         </div>
 
@@ -284,8 +295,51 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
             </div>
           )}
 
-          {/* Step 2 : Trajet */}
+          {/* Step 2 : Destinataire */}
           {step === 2 && (
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+                  <User className="w-4 h-4" /> Nom du destinataire
+                </label>
+                <input
+                  type="text"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="Prénom et nom du destinataire"
+                  className="w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D16E41]"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+                  <Phone className="w-4 h-4" /> Téléphone du destinataire
+                </label>
+                <input
+                  type="text"
+                  value={recipientPhone}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setRecipientPhone(val)
+                    if (val && !/^\+[1-9]\d{6,14}$/.test(val)) {
+                      setRecipientPhoneError('Format invalide — ex: +221771234567')
+                    } else if (val && val === selectedPerson?.mobile) {
+                      setRecipientPhoneError("Le destinataire ne peut pas être l'expéditeur")
+                    } else {
+                      setRecipientPhoneError('')
+                    }
+                  }}
+                  placeholder="Format international ex: +221771234567"
+                  className={`w-full px-4 py-3 bg-gray-700 text-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D16E41] ${recipientPhoneError ? 'border-red-500' : 'border-gray-600'}`}
+                />
+                {recipientPhoneError && (
+                  <p className="text-sm text-red-400 mt-1">{recipientPhoneError}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 : Trajet */}
+          {step === 3 && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -354,8 +408,8 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
             </div>
           )}
 
-          {/* Step 3 : Natures */}
-          {step === 3 && (
+          {/* Step 4 : Natures */}
+          {step === 4 && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
@@ -415,17 +469,22 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
             </div>
           )}
 
-          {/* Step 4 : Confirmation + Paiement optionnel */}
-          {step === 4 && (
+          {/* Step 5 : Confirmation + Paiement optionnel */}
+          {step === 5 && (
             <div className="space-y-4">
               {/* Résumé */}
               <div className="bg-gray-700 rounded-lg p-5 space-y-4">
                 <h3 className="text-lg font-semibold text-white">Résumé du colis</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-400">Client</p>
+                    <p className="text-sm text-gray-400">Client (expéditeur)</p>
                     <p className="text-white font-medium">{selectedPerson?.firstName} {selectedPerson?.lastName}</p>
                     <p className="text-sm text-gray-400">{selectedPerson?.mobile}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Destinataire</p>
+                    <p className="text-white font-medium">{recipientName}</p>
+                    <p className="text-sm text-gray-400">{recipientPhone}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-400">Poids</p>
@@ -563,7 +622,7 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
               Retour
             </button>
           )}
-          {step < 4 ? (
+          {step < 5 ? (
             <button onClick={() => setStep(step + 1)} disabled={!canNext()}
               className="flex-1 py-3 bg-[#D16E41] hover:bg-[#E07D52] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               Suivant
@@ -587,6 +646,8 @@ export function CreatePackageModal({ isOpen, onClose }: Props) {
                   personId:       selectedPerson.id,
                   departureGpId:  selectedDep.id,
                   weight,
+                  recipientName,
+                  recipientPhone,
                   packageNatures: addedNatures.map((n) => ({ natureId: n.natureId, quantity: n.quantity })),
                   payment,
                 })

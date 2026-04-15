@@ -1,34 +1,23 @@
-import { apiClient } from './client'
-import type { ApiResponse, Currency, Nature, PaymentMethod, Address, Role } from '@/lib/types/api.types'
+import type { Currency, Nature, PaymentMethod, Address, Role } from '@/lib/types/api.types'
+import {
+  MOCK_CURRENCIES,
+  MOCK_PAYMENT_METHODS,
+  MOCK_NATURES,
+  MOCK_ROLES,
+  MOCK_ADDRESSES,
+} from '@/lib/mock/data'
 
 export const referenceApi = {
-  currencies: async (): Promise<Currency[]> => {
-    const { data } = await apiClient.get<ApiResponse<Currency[]>>('/ref/currencies')
-    return data.data
-  },
+  currencies: async (): Promise<Currency[]> => MOCK_CURRENCIES,
 
-  paymentMethods: async (): Promise<PaymentMethod[]> => {
-    const { data } = await apiClient.get<ApiResponse<PaymentMethod[]>>('/ref/payment-methods')
-    return data.data
-  },
+  paymentMethods: async (): Promise<PaymentMethod[]> => MOCK_PAYMENT_METHODS,
 
-  addresses: async (): Promise<Address[]> => {
-    const { data } = await apiClient.get<ApiResponse<{ props: Address[] }>>('/addresses', { params: { limit: 100 } })
-    return data.data.props
-  },
+  addresses: async (): Promise<Address[]> => MOCK_ADDRESSES,
 
-  relaisAddresses: async (): Promise<Address[]> => {
-    const { data } = await apiClient.get<ApiResponse<{ props: Address[] }>>('/addresses', { params: { type: 'RELAIS', limit: 100 } })
-    return data.data.props
-  },
+  relaisAddresses: async (): Promise<Address[]> =>
+    MOCK_ADDRESSES.filter((a) => a.type === 'RELAIS'),
 
-  roles: async (): Promise<Role[]> => {
-    const { data } = await apiClient.get<ApiResponse<Role[]>>('/ref/roles')
-    return data.data
-  },
+  roles: async (): Promise<Role[]> => MOCK_ROLES,
 
-  natures: async (): Promise<Nature[]> => {
-    const { data } = await apiClient.get<ApiResponse<Nature[]>>('/ref/natures')
-    return data.data
-  },
+  natures: async (): Promise<Nature[]> => MOCK_NATURES,
 }

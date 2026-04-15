@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token')?.value
-  const { pathname } = request.nextUrl
-
-  const isLoginPage = pathname === '/login'
-  const isPublic = pathname.startsWith('/_next') || pathname.startsWith('/favicon')
-
-  if (isPublic) return NextResponse.next()
-
-  if (!token && !isLoginPage) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  if (token && isLoginPage) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-
+// Auth temporairement désactivée pour la génération de maquettes Figma
+export function middleware(_request: NextRequest) {
   return NextResponse.next()
 }
 
