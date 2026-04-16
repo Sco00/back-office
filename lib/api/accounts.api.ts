@@ -1,6 +1,9 @@
-import type { Account, CreateAccountDTO } from '@/lib/types/api.types'
-import { MOCK_ACCOUNTS } from '@/lib/mock/data'
+import { apiClient } from './client'
+import type { ApiResponse, Account, CreateAccountDTO } from '@/lib/types/api.types'
 
 export const accountsApi = {
-  create: async (_dto: CreateAccountDTO): Promise<Account> => MOCK_ACCOUNTS[0],
+  create: async (dto: CreateAccountDTO): Promise<Account> => {
+    const { data } = await apiClient.post<ApiResponse<Account>>('/accounts', dto)
+    return data.data
+  },
 }

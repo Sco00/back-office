@@ -1,4 +1,6 @@
+import { apiClient } from './client'
 import type {
+  ApiResponse,
   PaginatedData,
   Person,
   PersonDetail,
@@ -6,38 +8,27 @@ import type {
   PersonFilters,
   CreatePersonDTO,
 } from '@/lib/types/api.types'
-import { MOCK_PERSONS, MOCK_PERSON_TYPES, MOCK_PERSON_DETAILS, paginate } from '@/lib/mock/data'
 
 export const personsApi = {
-  listTypes: async (): Promise<PersonType[]> => MOCK_PERSON_TYPES,
+  listTypes: async (): Promise<PersonType[]> => {
+    const { data } = await apiClient.get<ApiResponse<PersonType[]>>('/persons/types')
+    return data.data
+  },
 
   list: async (filters: PersonFilters = {}): Promise<PaginatedData<Person>> => {
-    let items = [...MOCK_PERSONS]
-
-    if (filters.search) {
-      const q = filters.search.toLowerCase()
-      items = items.filter(
-        (p) =>
-          p.firstName.toLowerCase().includes(q) ||
-          p.lastName.toLowerCase().includes(q) ||
-          p.mobile.includes(q),
-      )
-    }
-    if (filters.personTypeId) {
-      items = items.filter((p) => p.personType.id === filters.personTypeId)
-    }
-    if (filters.hasPackages) {
-      items = items.filter((p) => p._count.packages > 0)
-    }
-
-    return paginate(items, filters.page, filters.limit)
+    const { data } = await apiClient.get<ApiResponse<PaginatedData<Person>>>('/persons', {
+      params: filters,
+    })
+    return data.data
   },
 
   getById: async (id: string): Promise<PersonDetail> => {
-    const detail = MOCK_PERSON_DETAILS.find((p) => p.id === id)
-    if (!detail) throw new Error(`Person ${id} not found`)
-    return detail
+    const { data } = await apiClient.get<ApiResponse<PersonDetail>>(`/persons/${id}`)
+    return data.data
   },
 
-  create: async (_dto: CreatePersonDTO): Promise<Person> => MOCK_PERSONS[0],
+  create: async (dto: CreatePersonDTO): Promise<Person> => {
+    const { data } = await apiClient.post<ApiResponse<Person>>('/persons', dto)
+    return data.data
+  },
 }
